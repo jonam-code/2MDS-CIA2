@@ -1,0 +1,355 @@
+---
+title: "CIA LAB EXAM"
+author: "MANOJ KUMAR - 2048015"
+date: "4/30/2021"
+output: word_document
+---
+
+
+## Problem Description 
+
+    The DublinTest is the provided Binary Classification dataset, where we have to classify the Target label 'Outcome' using other 7 variables namely BloodPressure, RBS, FBS, Serum.Insulin, BMI, BUN, and Age. Initailly we have to do neccessary Exploratory data analysis work to sort messy data and furture proceeding with feature seletions to get appropriate features to classify our dataset.
+
+## Dataset Understanding
+
+    The DublinTest dataset has 8 variables with 680 observations, considered to be an Binary Classification dataset sicne it's consists of 1 Target column and 7 Regresses. 
+
+*Blood Pressure*: This records the systolic blood pressure in the arteries when the heartbeats.
+*RBS*: Random Blood Sugar  testing measures the levels of glucose in the blood at any given point in the day.
+*FBS*: Fasting Blood sugar  measures your blood sugar after an overnight fast.
+*Serum Insulin*: Insulin  test, used to measure the amount of insulin in the body.
+*BMI*: Body Mass Index is a reliable indicator of body fatness.
+*BUN*: Blood Urea Nitrogen level of the person.
+*Age*: Age of the patient.
+*Outcome*: class variable
+
+
+## 1. Import the DublinTest Dataset and load the  necessary packages.
+
+```{r}
+library(RColorBrewer)  # color
+library(funModeling)   # histogram
+library(Amelia)        # missmap
+library(tidyverse)     # duplicate values
+library(mice)          # impute missing values
+library(caret)         # Classification and regression
+library(randomForest)  # Random forest     
+library(dplyr)         # Remove duplicate rows
+library(e1071)         # SVM
+```
+
+```{r}
+dataset <- read.csv("DublinTest dataset.csv")
+head(dataset)
+```
+
+## 2.Explore the Descriptive Analysis and visualize the data using plots 
+
+
+```{r}
+# Dimension of dataset
+
+dim(dataset)
+```  
+
+#### Insights 
+
+      - The DublinTest dataset has 8 variables with 680 observations
+      - All the 8 variables are numberical in nature.
+    
+```{r}
+# Check data structure
+
+str(dataset)
+```
+
+#### Insights 
+
+      - BloodPressure,	RBS,	FBS,	Serum, Insulin,	Age, and 	Outcome are Numberic and Discrite in nature.
+      - BMI and BUN are Numberic and countinuous in nature.
+      - Clearnly, Outcome is our Target classification variable 
+
+```{r}
+# Check data structure
+
+summary(dataset)
+```
+
+#### Insights 
+
+      - Summary is used to get basic stastistical report for all the 8 variables.
+      - BloodPressure has the 0.0 value as minimum, and 198 value as maximum.
+      - RBS has the 0.0 value as minimum, and 122 value as maximum.
+      - FBS has the 0.0 value as minimum, and 99 value as maximum.
+      - Serum.Insulin has the 0.0 value as minimum, and 846 value as maximum.
+      - BMI has the 0.0 value as minimum, and 67 value as maximum.
+      - BUN has the 0.0780 value as minimum, and 2.4200 value as maximum.
+      - Age has the 21.0 value as lowest, and 81 value as maximum.
+      - Outcome has 0 and 1 as class label value.
+      
+```{r}
+# Total missing count
+
+colSums(is.na(dataset))
+```
+
+#### Insights 
+
+      - All the variables having 1 NULL values in the DublinTest dataset. 
+      
+```{r}
+dataset = na.omit(dataset)
+```
+      
+```{r}
+# Total missing count
+
+colSums(is.na(dataset))
+```
+
+```{r}
+#Checking for Empty Values
+
+colSums(dataset=='')
+```
+    
+#### Insights 
+
+      - Zero Empty Values values in the DublinTest dataset. 
+      
+```{r}
+#Checking for Duplicate values
+
+duplicated(dataset)
+```
+
+#### Insights 
+
+      - Clearly, we found 28 duplicated instance in the DublinTest dataset.
+
+```{r}
+dataset = unique(dataset)
+```
+#### Insights 
+
+      - dplyr library is used to remove duplicate in the dataset.
+      - To extract unique elements from the data frames: unique(datadet) is used.
+
+```{r}
+# Missing value imputation
+
+missmap(dataset,col=c("yellow","red"))
+```      
+
+#### Insights 
+
+      - From the above chart it's clear that we don't have any missing values in the DublinTest dataset
+
+```{r}
+# To find the unique values in each column.
+
+apply(dataset,2,function(x) length(unique(x)))
+```
+
+#### Insights 
+
+      - From the above stastistical table we can find the unique values in each column. 
+      - We can convert the Outcome class label column to factor since it's having only 2 distinct value
+      
+```{r}
+# Distribution of all the variables 
+
+plot_num(dataset)
+```
+
+#### Insights 
+
+      - Blood Pressure is normally distributed.
+      - Serum Insulin, BUN, and Age is rightly skewed and showing possitive intent.
+      - BMI, RBS, FBS are not normally distributed.
+
+
+```{r}
+densityplot(~ Outcome, data =dataset,
+            plot.points = FALSE,
+            groups = Outcome,
+            auto.key = TRUE)
+```
+
+#### Insights 
+
+      - Both the outomes are normally distributed.
+     
+```{r}
+# Compute correlation matrix
+library(corrplot)
+library(ggplot2)
+library(reshape2)
+```
+```{r}
+res <- cor(dataset)
+corrplot(res, type = "upper", order = "hclust", tl.col = "black", tl.srt = 45)
+```
+
+#### Insights 
+
+      - BloodPressure and BMI having strong correlation value towards Outcome.
+      - FBS and RBS having less correlation strenght while comparing with other values.
+
+```{r}
+library(GGally)
+ggcorr(dataset,label=T)
+```
+
+```{r}
+#Correlation Heat Map
+
+cormat <- round(cor(dataset),2)
+melted_cormat <- melt(cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile()
+```
+
+#### Insights 
+
+      - Most of the columns were seems to be similar in shardings, so multi-collinearity needs to validated.
+      
+### Feature Selection
+
+# Checking for multi-collinearity using variance inflation factor 
+```{r}
+library(car)
+
+lrm <- lm(dataset$Outcome~.,data=dataset)
+vif(lrm)
+```
+
+#### Insights 
+
+      - Since all the variance inflation factor are less than 5, we can conclude that there exist no Multi-Collinearity
+      
+      
+```{r}
+dataset = subset(dataset, select = -c( RBS, FBS) )
+head(dataset)
+```
+
+
+```{r}
+# Converting Class label to Factor
+
+dataset$Outcome=as.factor(dataset$Outcome)
+```
+
+
+## 3. Split your data set into training and test data
+
+```{r}
+# Data Splitting
+
+set.seed(52)
+
+index <- createDataPartition(dataset$Outcome, p=0.80, list=FALSE) 
+train <- dataset[index,]      #Train data : 80%
+test<- dataset[-index,]       #Test data : 20%
+
+```
+
+#### Insights 
+
+      - Here, our dataset is splitted into 8:2 ratio.
+      - 80 % of Training data
+      - 20 % of Testing data
+
+
+#### 4. Use any two machine learning algorithms to build your model
+
+*Decision tree*      
+      Decision tree works with both regression and classification problem. Since in dataset target variable has two values 0 and 1 that is its binary classification problem. A Decision tree is nothing but the graphical representation of solutions based on the certain conditions.One disadvantage of using this model is that its generally overfilling.
+      
+    
+```{r}
+# Implementing Decision Tree
+
+model_rpart<-train(Outcome~.,
+                   test,
+                   method='rpart')
+prediction=predict.train(model_rpart,
+                         test,
+                         type="raw")
+confusionMatrix(table(predict(model_rpart,test),
+                      test$Outcome))
+```
+
+#### Insights 
+
+      - Accuracy : 0.7364*
+
+```{r}
+# Using another evaluation error metrics ROC curve.
+library(pROC)
+
+for_auc=predict(model_rpart,
+                test,
+                type="prob")
+
+plot(roc(test$Outcome,for_auc[,2]),
+     main="Decision Tree",
+     col="green")
+```
+
+
+*SVM*
+
+      Support vector machine(SVM) are supervised learning models with associated learning algorithms that analyze data used for classification and regression analysis. It is mostly used in classification problems. In this algorithm, each data item is plotted as a point in n-dimensional space (where n is number of features), with the value of each feature being the value of a particular coordinate. Then, classification is performed by finding the hyper-plane that best differentiates the two classes.
+
+```{r}
+train[["Outcome"]] = factor(train[["Outcome"]])
+trctrl <- trainControl(method = "repeatedcv", number = 10, repeats = 3)
+
+#Building the model
+svm_Linear <- train(Outcome ~., data = train, method = "svmLinear",
+trControl=trctrl,
+preProcess = c("center", "scale"),
+tuneLength = 10)
+
+#Model Summary
+svm_Linear
+```
+
+#### Insights 
+
+      - Accuracy : 0.7859223
+
+*Random Forest Model*
+
+      Random Forest also works with both Regression and Classification problems. It builds a number of the Decision tree and adds them together to get a more effective result. It can also be used for variable importance estimation. Random Forest is a good choice if the model is suffering from the High Variance problem.
+      
+```{r}
+#  Implementing random Forest.
+
+set.seed(52)
+
+model_rf<-train(Outcome~.,
+                train,
+                method='rf')
+prediction=predict.train(model_rf,
+                         train,
+                         type="raw")
+confusionMatrix(table(predict(model_rf,train),
+                      train$Outcome))
+```
+
+
+# CONCLUSION
+
+      - After doing the neccessary pre-processing work and modeling. Results clearly show that Random Forest performs better than a Decision Tree. Also pre-processing help us in avoiding errors. There are other packages also those help R users for data wrangling and statistical analysis without doing complex coding, but by studying caret package came to know that this one package is enough to building machine learning system.
+      - We got, 73 % of accuracy score from Decision Tree, where as Random Forest provided almost 99 % of accuracy score.
+      - Even through Random forest giving good result, its overfitting.
+      
+      
+
+
+
+
+
+

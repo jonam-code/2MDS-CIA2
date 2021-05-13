@@ -1,0 +1,338 @@
+---
+title: "Exam_"
+author: "Soundarya G"
+date: "30/04/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# NECESSARY LIBRARIES
+
+```{r}
+library(RColorBrewer)  # color
+library(funModeling)   # histogram
+library(Amelia)        # missmap
+library(tidyverse)     # duplicate values
+library(mice)          # impute missing values
+library(caret)         # Classification and regression
+library(randomForest)  # Random forest     
+```
+
+_______________________________________________________________________________________________________________________
+
+# DATASET
+    
+    ## Loading Data set
+```{r}
+dataset <- read.csv(".csv")
+```
+
+    ## About Dataset
+    
+    ## Dataset Description
+
+_______________________________________________________________________________________________________________________
+    
+# EXPLORATORY DATA ANALYSIS
+
+```{r}
+head(dataset)
+```
+
+```{r}
+# Dimension of Dataset
+
+dim(dataset)
+```  
+
+```{r}
+# Check data structure
+
+str(dataset)
+```
+
+**Inference:** 
+
+    ## Handling Missing Values 
+    
+```{r}
+# Total missing count
+
+colSums(is.na(dataset))
+```
+
+```{r}
+#Checking for Empty Values
+
+colSums(dataset=='')
+```
+    
+```{r}
+#Checking for Duplicate values
+
+duplicated(dataset)
+```
+
+```{r}
+missmap(dataset,col=c("pink","blue"))
+```
+    
+```{r}
+#to find the unique values in each column.
+
+apply(dataset,2,function(x) length(unique(x)))
+```
+
+```{r}
+# impute values
+
+imputed_data<-mice(dataset,method = 'pmm',seed=50) # pmm-predictive mean matching
+```
+
+```{r}
+summary(imputed_data)
+```
+
+```{r}
+data<-complete(imputed_data)
+summary(data)
+```
+
+**Inference:** 
+
+    ## Density plot
+    
+```{r}
+j=c(1,4,5,8,10)
+for (i in j)
+{
+x=data[,i]
+c=density(x)
+plot(c,col='black',
+     xlab=colnames(data[i]),
+     main=colnames(data[i]),
+     sub=paste("Skewness",round(e1071::skewness(x),2)))
+polygon(c, col = "blue")
+
+}
+```
+
+**Inference:** 
+- Skewness conclusion based on: if it is 0 - symmetric and data normally distributed, if it is > 0 - positively skewed and data values are less than mean and if it is < 0 - negatively skewed and data values are greater than mean.
+- Hence here we find the data slightly Right Skewed, which implies most of the values are positive in nature and lesser than mean value. 
+
+    ## Histogram plot
+    
+```{r}
+plot_num(data)
+```
+
+**Inference:** 
+
+    ## Correlation 
+    
+```{r}
+#Correlation Heat Map
+library(ggplot2)
+library(reshape2)
+
+cormat <- round(cor(data),2)
+melted_cormat <- melt(cormat)
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile()
+
+```
+   
+```{r}
+library(corrplot)
+
+cor_mat<-cor(data[,j])
+corrplot(cor_mat,
+  method = "number",
+  type = "lower" # show only lower side
+)
+```
+  
+**Inference:** 
+
+    ## Pairplot
+
+```{r}
+pairs(data[,j],col=c("green","blue")[data$condition],pch=10,upper.panel=NULL)
+```
+
+**Inference:** 
+
+    ## Scatter plot
+    
+```{r}
+library("ggplot2")
+ggplot(data,aes(x=thalach,y=age,color=condition))+
+  geom_point()+
+  labs(title="thalach vs age")
+
+```
+
+```{r}
+library("ggplot2")
+ggplot(data,aes(x=oldpeak,y=thalach,color=condition))+
+  geom_point()+
+  labs(title="pelvic_incidence v/s sacral_slope")
+```
+
+```{r}
+#SCATTER PLOTS
+
+j=c(2,3,4,5,6,7,8,9,10,11)
+for (i in j)
+{
+  library(car)
+X=mtcars[,i]
+Y=mtcars$mpg
+scatterplot(X,
+            Y,
+            xlab =colnames(mtcars[i]),
+            ylab=colnames(mtcars[1]),
+            boxplots = " ", # Disable boxplots
+            smooth = FALSE, # Removes smooth estimate
+            regLine = TRUE, # add regression line
+            grid = TRUE,
+            main=colnames(mtcars[i])
+)
+}
+```
+
+**Inference:** 
+           -There is a positive trend between mpg&drat, mpg&qsec and mpg&gear,mpg&vs and mpg&am.
+           -There is a negative trend between mpg&cyl,mpg&disp,mpg&hp,mpg&wt and mpg&carb.
+           
+    ## Box plot
+    
+```{r}
+par(mfrow=c(2,2))
+boxplot(df$drat, main = "Rear axle ratio")
+boxplot(df$qsec, main = "1/4 mile time")
+boxplot(df$gear, main = "Number of Forward Gears")
+```
+
+```{r}
+ggplot(data=data,aes(y=age))+
+  geom_boxplot(aes(fill=condition))+
+  labs(title="age")
+```
+
+```{r}
+ggplot(data=data,aes(y=trestbps))+
+  geom_boxplot(aes(fill=condition))+
+  labs(title="trestbps")
+```
+
+**Inference:** 
+
+    ## Count Plot
+    
+```{r}
+freq(data)
+```
+
+```{r}
+library(ggpubr)
+theme_set(theme_pubr())
+
+ggplot(data, aes(x=condition)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+```
+    
+_______________________________________________________________________________________________________________________
+    
+# DATA PREPARATION
+    
+    ## Upsampling or downsampling
+```{r}
+library(caret)
+data<-upSample(subset(data,select=-c(condition)),data$condition)
+ggplot(data, aes(x=Class)) +
+  geom_bar(fill = "#0073C2FF") +
+  theme_pubclean()
+```
+    
+**Inference:** 
+   
+    ## converting to factors
+```{r}
+data_tran$Survived=as.factor(data_tran$Survived)
+```
+    
+**Inference:** 
+_______________________________________________________________________________________________________________________
+
+# FEATURE SELECTION
+
+```{r}
+library(caret)
+varImp(fit_glm)
+```
+
+_______________________________________________________________________________________________________________________
+
+# MODEL BUILDING
+
+    ## Train and test split
+
+```{r}
+#Splitting the data
+set.seed(52)
+
+trainingRow <- sample(1:nrow(data), 0.7*nrow(data))
+trainset <- data[trainingRow,]
+testset <- data[-trainingRow,]
+```
+
+    ## Regression
+          
+          ### Multiple Linear Regression
+```{r}
+lrm <- lm(trainset$mpg~.,data=trainset)
+
+summary(lrm)
+```
+          
+```{r}
+# checking for multi-collinearity using vif()-variance inflation factor 
+
+library(car)
+vif(lrm)
+```
+
+The assumption related to Regression model is that explanatory variables are uncorrelated. If this assumption is violated it lead to multicollinearity.Variance Inflation Factor is the measure of amount of multicollinearity.Conclusions from VIF is derived as follows
+
+* VIF=1   : no multicollinearity exists
+* 1<VIF<=5: moderately multicollinear
+* VIF>5   : highly multicollinear
+
+
+          ### Lasso Regression
+          
+          ### Ridge Regression
+          
+          ### Random Forest
+          
+          ### Decision Tree
+          
+    ## Classification
+         
+          ### SVC
+          
+          ### Logistic Regression
+          
+          ### Decision Tree
+          
+          ### Random Forest
+          
+    ## Clustering
+    
+
+    
